@@ -95,22 +95,6 @@ class Bundle(object):
             raise Exception(
                 'could not find executable for {0}'.format(self.path))
         return executable
-        
-    def update_appex_info_props(self, new_props):
-        if ('CFBundleIdentifier' in new_props) :
-            plugins_path = join(self.path, 'PlugIns')
-            new_main_bundle_id = new_props['CFBundleIdentifier']
-            if exists(plugins_path):
-                appex_paths = glob.glob(join(plugins_path, '*.appex'))
-                for appex_path in appex_paths:
-                    plist_path = join(appex_path, 'Info.plist')
-                    if not exists(plist_path):
-                        continue
-                    plist = biplist.readPlist(plist_path)
-                    exeName = plist['CFBundleExecutable']
-                    newBundleId = new_main_bundle_id + '.' + exeName
-                    plist['CFBundleIdentifier'] = newBundleId
-                    biplist.writePlist(plist, plist_path, binary=True)
 
     def update_info_props(self, new_props):
         if self.orig_info is None:
@@ -196,16 +180,8 @@ class Bundle(object):
             # sign the appex executables
             appex_paths = glob.glob(join(plugins_path, '*.appex'))
             for appex_path in appex_paths:
-                plist_path = join(appex_path, 'Info.plist')
-                if not exists(plist_path):
-                    continue
-                plist = biplist.readPlist(plist_path)
-                appex_exec_path = join(appex_path, plist['CFBundleExecutable'])
-                seal_path = code_resources.make_seal(appex_exec_path, appex_path)
-                log.debug("Info path {} seal_path {}".format(plist_path, seal_path))
-                appex = signable.Appex(self, appex_exec_path, signer, info_path=plist_path, seal_path=seal_path)
-                appex.sign(self, signer)
-
+				appex = Appex(appex_path, self.native_platforms)
+				appex.resign(signer)
         # then create the seal
         # TODO maybe the app should know what its seal path should be...
         self.seal_path = code_resources.make_seal(self.get_executable_path(),
@@ -231,6 +207,30 @@ class Framework(Bundle):
 
     def __init__(self, path, native_platforms):
         super(Framework, self).__init__(path, native_platforms)
+   
+#This class fully expects that Entitlements.plist and embedded.mobileprovision are in place...     
+class Appex(Bundle):
+    """ The kind of bundle that is visible as an app to the user.
+        Contains the provisioning profile, entitlements, etc.  """
+
+    # the executable in this bundle will be an Executable (i.e. the main
+    # executable of an app)
+    signable_class = signable.Appex
+
+    def __init__(self, path, native_platforms):
+        super(Appex, self).__init__(path, native_platforms)
+        self.entitlements_path = join(self.path,
+                                      'Entitlements.plist')
+        self.provision_path = join(self.path,
+                                   'embedded.mobileprovision')
+    def resign(self, signer):
+        # sign any dylibs in the main directory (rare, but it happens)
+        self.sign_dylibs(signer, self.path)
+        self.seal_path = code_resources.make_seal(self.get_executable_path(),
+                                                  self.path)
+        # then sign the app
+        executable = self.signable_class(self, self.get_executable_path(), signer, info_path=self.info_path, seal_path=self.seal_path)
+        executable.sign(self, signer)
 
 
 class App(Bundle):
@@ -296,10 +296,9 @@ class App(Bundle):
             self.write_entitlements(entitlements)
         else:
             log.info("signing with alternative entitlements: {}".format(alternate_entitlements_path))
-            #entitlements = biplist.readPlist(alternate_entitlements_path)
-            shutil.copyfile(alternate_entitlements_path, self.entitlements_path)
+            if (alternate_entitlements_path != self.entitlements_path):	
+				shutil.copyfile(alternate_entitlements_path, self.entitlements_path)
         
-
         # actually resign this bundle now
         super(App, self).resign(signer)
 
@@ -312,13 +311,14 @@ class WatchApp(App):
     def __init__(self, path):
         super(WatchApp, self).__init__(path, self.native_platforms)
         
- #   def resign(self, signer, provisioning_profile, alternate_entitlements_path=None):
-#		watchkitstub_path = join(self.path, '_WatchKitStub')
-#		if exists(watchkitstub_path):
-#			st_path = join(watchkitstub_path, 'WK')
-#			stub = signable.Dylib(self, st_path, signer)
-#			stub.sign(self, signer)
-#		super(WatchApp, self).resign(signer, provisioning_profile, alternate_entitlements_path)
+    def resign(self, signer, provisioning_profile, alternate_entitlements_path=None):
+		log.info("just ignore")
+		#watchkitstub_path = join(self.path, '_WatchKitStub')
+	#	if exists(watchkitstub_path):
+	#		st_path = join(watchkitstub_path, 'WK')
+	#		stub = signable.Dylib(self, st_path, signer)
+	#		stub.sign(self, signer)
+	#	super(WatchApp, self).resign(signer, provisioning_profile, alternate_entitlements_path)
 
 
 class IosApp(App):

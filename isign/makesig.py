@@ -347,11 +347,11 @@ def make_signature(arch_macho, arch_offset, arch_size, cmds, f, entitlements_fil
             data=cmd_data,
             bytes=macho.CodeSigRef.build(cmd_data))
 
-    log.debug("CS blob before: {}".format(utils.print_structure(codesig_cons, macho_cs.Blob)))
-    log.debug("len(codesig_data): {}".format(len(codesig_data)))
+    #log.debug("CS blob before: {}".format(utils.print_structure(codesig_cons, macho_cs.Blob)))
+   # log.debug("len(codesig_data): {}".format(len(codesig_data)))
 
     codesig_length = codesig_data_length
-    log.debug("codesig length: {}".format(codesig_length))
+   # log.debug("codesig length: {}".format(codesig_length))
 
     log.debug("old ncmds: {}".format(arch_macho.ncmds))
     arch_macho.ncmds += 1

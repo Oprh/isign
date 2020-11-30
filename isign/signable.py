@@ -335,16 +335,6 @@ class Appex(Signable):
                     ResourceDirSlot,
                     RequirementsSlot,
                     InfoSlot]
-                 
-    def __init__(self, bundle, path, signer, info_path,  seal_path):
-        plist = biplist.readPlist(info_path)
-        appexName = plist['CFBundleIdentifier'].split('.')[-1]
-        self.suffix = "." + appexName
-        log.info('Appex name %s suffix %s', appexName, self.suffix)
-        tempBundleId = bundle.get_info_prop('CFBundleIdentifier')
-        self.bundleId = tempBundleId + '.' + appexName
-        log.info('Appex bundle id %s', self.bundleId)
-        super(Appex, self).__init__(bundle, path, signer, info_path, seal_path)
             
     def sign(self, app, signer):
         log.info('Sign appex!')
