@@ -39,6 +39,7 @@ setup(
     keywords=['ios', 'app', 'signature', 'codesign', 'sign', 'resign'],
     packages=find_packages(),
     install_requires=[
+		'cryptography==2.9.2',
         'biplist==1.0.3',
         'construct==2.5.2',
         'memoizer==0.0.1',
