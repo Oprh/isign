@@ -148,13 +148,16 @@ class Bundle(object):
 
     def sign_dylibs(self, signer, path):
         """ Sign all the dylibs in this directory """
+        execPath  = self.get_executable_path()
         for dylib_path in glob.glob(join(path, '*.dylib')):
-            dylib = signable.Dylib(self, dylib_path, signer)
-            dylib.sign(self, signer)
+			if  dylib_path != execPath:
+				log.debug("SIGNING dylib: %s" % dylib_path)
+				dylib = signable.Dylib(self, dylib_path, signer)
+				dylib.sign(self, signer)
 
     def sign(self, signer):
         """ Sign everything in this bundle, recursively with sub-bundles """
-        # log.debug("SIGNING: %s" % self.path)
+        log.debug("SIGNING: %s" % self.path)
         frameworks_path = join(self.path, 'Frameworks')
         if exists(frameworks_path):
             # log.debug("SIGNING FRAMEWORKS: %s" % frameworks_path)
@@ -164,13 +167,11 @@ class Bundle(object):
                 # log.debug("checking for framework: %s" % framework_path)
                 try:
                     framework = Framework(framework_path, self.native_platforms)
-                    # log.debug("resigning: %s" % framework_path)
                     framework.resign(signer)
+                    
                 except NotMatched:
                     # log.debug("not a framework: %s" % framework_path)
                     continue
-            # sign all the dylibs under Frameworks
-            self.sign_dylibs(signer, frameworks_path)
 
         # sign any dylibs in the main directory (rare, but it happens)
         self.sign_dylibs(signer, self.path)
