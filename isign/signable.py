@@ -7,15 +7,15 @@
 
 from abc import ABCMeta
 from codesig import (Codesig,
-					 EntitlementsBinarySlot,
                      EntitlementsSlot,
+                     DerEntitlementsSlot,
                      ResourceDirSlot,
                      RequirementsSlot,
                      ApplicationSlot,
                      InfoSlot)
 import logging
 import macho
-from makesig import make_signature, replace_signature
+from makesig import make_signature
 from os.path import basename, exists, join, splitext
 import os
 import biplist
@@ -308,8 +308,8 @@ class Signable(object):
 class Executable(Signable):
     """ The main executable of an app. """
     slot_classes = [
-                  #  EntitlementsBinarySlot,
                     EntitlementsSlot,
+                    DerEntitlementsSlot,
                     ResourceDirSlot,
                     RequirementsSlot,
                     ApplicationSlot,
@@ -325,6 +325,7 @@ class Dylib(Signable):
               Add read/write of the embedded Info.plist so we can include InfoSlot below.
     """
     slot_classes = [EntitlementsSlot,
+                    DerEntitlementsSlot,
                     RequirementsSlot]
 
 
@@ -332,6 +333,7 @@ class Appex(Signable):
     """ An app extension  """
     slot_classes = [#EntitlementsBinarySlot,
                     EntitlementsSlot,
+                    DerEntitlementsSlot,
                     ResourceDirSlot,
                     RequirementsSlot,
                     InfoSlot]

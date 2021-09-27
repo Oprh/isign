@@ -10,29 +10,10 @@ from construct import *
 import plistlib
 import logging
 
-from pyasn1.codec.der.decoder import decode
-from pyasn1.codec.der.encoder import encode
-import ents
-
 SHA1_HASHTYPE = 1
 SHA256_HASHTYPE = 2
 
 log = logging.getLogger(__name__)
-'''
-FOR NOW we do not use an adapter; instead, will handle localy
-'''
-class Asn1Adapter(Adapter):
-    def _encode(self, obj, context):
-        return encode(obj)
-
-    def _decode(self, obj, context):
-    #    log.info('Decoding obj %s : %s', type(obj), obj)
-        ent, rest = decode(obj, ents.Ents())
-    #    log.info('Decoded asn %s', type(ent))
-        #traceback.print_stack(file=sys.stdout)
-      #  for field in ent:
-       #     log.info('Key %s value %s', field['key'], field['val'])
-        return ent
 
 class PlistAdapter(Adapter):
     def _encode(self, obj, context):
@@ -66,7 +47,7 @@ CodeDirectory = Struct("CodeDirectory",
                        UBInt32("codeLimit"),
                        UBInt8("hashSize"),
                        UBInt8("hashType"),
-                       UBInt8("platform"),
+                       UBInt8("spare1"),
                        UBInt8("pageSize"),
                        UBInt32("spare2"),
                        UBInt32("scatterOffset"),
@@ -75,6 +56,7 @@ CodeDirectory = Struct("CodeDirectory",
 
                        If(lambda ctx: ctx['version'] >= 0x20300, UBInt32("spare3")),
                        If(lambda ctx: ctx['version'] >= 0x20300, UBInt64("codeLimit64")),
+                       
                        If(lambda ctx: ctx['version'] >= 0x20400, UBInt64("execSegBase")),
                        If(lambda ctx: ctx['version'] >= 0x20400, UBInt64("execSegLimit")),
                        If(lambda ctx: ctx['version'] >= 0x20400, UBInt64("execSegFlags")),
@@ -159,9 +141,9 @@ Entitlement = Struct("Entitlement",
                      PlistAdapter(Bytes("data", lambda ctx: ctx['_']['length'] - 8)),
                      )
 
-EntitlementBinary = Struct("EntitlementBinary",
+DerEntitlement = Struct("DerEntitlement",
                      # actually a DER encoded entitlement
-                     Asn1Adapter(Bytes("data", lambda ctx: ctx['_']['length'] - 8)),
+                     Bytes("data", lambda ctx: ctx['_']['length'] - 8),
                      )
 
 EntitlementsBlobIndex = Struct("BlobIndex",
@@ -206,7 +188,7 @@ Blob_ = Struct("Blob",
                     CSMAGIC_REQUIREMENTS=0xfade0c01,
                     CSMAGIC_CODEDIRECTORY=0xfade0c02,
                     CSMAGIC_ENTITLEMENT=0xfade7171,  # actually, this is kSecCodeMagicEntitlement, and not defined in the C version
-                    CSMAGIC_ENTITLEMENT_BINARY=0xfade7172,
+                    CSMAGIC_DER_ENTITLEMENT=0xfade7172,
                     CSMAGIC_BLOBWRAPPER=0xfade0b01,  # and this isn't even defined in libsecurity_codesigning; it's in _utilities
                     CSMAGIC_EMBEDDED_SIGNATURE=0xfade0cc0,
                     CSMAGIC_DETACHED_SIGNATURE=0xfade0cc1,
@@ -218,7 +200,7 @@ Blob_ = Struct("Blob",
                             'CSMAGIC_REQUIREMENTS': Entitlements,
                             'CSMAGIC_CODEDIRECTORY': CodeDirectory,
                             'CSMAGIC_ENTITLEMENT': Entitlement,
-                            'CSMAGIC_ENTITLEMENT_BINARY' : EntitlementBinary,
+                            'CSMAGIC_DER_ENTITLEMENT' : DerEntitlement,
                             'CSMAGIC_BLOBWRAPPER': BlobWrapper,
                             'CSMAGIC_EMBEDDED_SIGNATURE': SuperBlob,
                             'CSMAGIC_DETACHED_SIGNATURE': SuperBlob,

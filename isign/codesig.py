@@ -5,8 +5,6 @@ import logging
 import macho_cs
 import makesig
 
-import pyasn1
-from pyasn1.codec.der.encoder import encode
 import ents
 import plistlib
 
@@ -31,11 +29,11 @@ class CodeDirectorySlot(object):
         elif hash_algorithm == "sha256":
             return hashlib.sha256(self.get_contents()).digest()
 
-class EntitlementsBinarySlot(CodeDirectorySlot):
+class DerEntitlementsSlot(CodeDirectorySlot):
     offset = -7
 
     def get_contents(self):
-        blobs = self.codesig.get_blobs('CSMAGIC_ENTITLEMENT_BINARY', min_expected=1, max_expected=1)
+        blobs = self.codesig.get_blobs('CSMAGIC_DER_ENTITLEMENT', min_expected=1, max_expected=1)
         return self.codesig.get_blob_data(blobs[0])
     
   #  def get_hash(self, hash_algorithm):
@@ -284,8 +282,6 @@ class Codesig(object):
             # TODO: Is there a better way to figure out which hashing algorithm we should use?
             hash_algorithm = hash_size_sha_mapping.get(code_directory.data.hashSize)
             log.debug('Hash algorithm %s', hash_algorithm)
-            if self.has_codedirectory_slot(EntitlementsBinarySlot, code_directory):
-                self.fill_codedirectory_slot(EntitlementsBinarySlot(self), code_directory, hash_algorithm)
 
             if self.has_codedirectory_slot(EntitlementsSlot, code_directory):
                 self.fill_codedirectory_slot(EntitlementsSlot(self), code_directory, hash_algorithm)
@@ -301,6 +297,9 @@ class Codesig(object):
 
             if self.has_codedirectory_slot(InfoSlot, code_directory):
                 self.fill_codedirectory_slot(InfoSlot(info_path), code_directory, hash_algorithm)
+                
+            if self.has_codedirectory_slot(DerEntitlementsSlot, code_directory):
+                self.fill_codedirectory_slot(DerEntitlementsSlot(self), code_directory, hash_algorithm)
 
             code_directory.data.teamID = signer.team_id
 
