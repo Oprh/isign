@@ -193,13 +193,19 @@ def make_basic_codesig(entitlements_file, drs, code_limit, hashes_sha1, hashes_s
         is_main_binary=is_main_binary)
 
     cd_data = macho_cs.CodeDirectory.build(cd)
-
+    # SHA256 codesignature disabled for now, as it is not correctly implemented and fails on iOS 15.1. For now we are
+    # just adding this switch so we can enable it again once it is properly done. At least, the current signature is not
+    # including a signed attribute with OID 1.2.840.113635.100.9.1 containing a plist with a "cdhashes" list (on which
+    # it has the base64 of the SHA1 and first 20 bytes of SHA256). That missing part is probably what is missing.
+    sha256_codesignature_enabled = False
     # Superblob has
     # magic (4)
     # size (4)
     # num of blobs (4)
     # [blob[n], offset to n ] (4 + 4) repeated for each blob
-    number_of_blobs = 4
+    number_of_blobs = 3
+    if sha256_codesignature_enabled:
+        number_of_blobs = 4
     if entitlements_file != None:
         number_of_blobs += 2
     offset = 4 + 4 + 4 + (8 * number_of_blobs)
@@ -238,7 +244,7 @@ def make_basic_codesig(entitlements_file, drs, code_limit, hashes_sha1, hashes_s
         offset += entitlements_index.blob.length
         
         xml_entitlements_dict = plistlib.readPlist(io.BytesIO(entitlements_bytes))
-        der_entitlements_bytes = der_encoder.der_encode(xml_entitlements_dict)
+        der_entitlements_bytes = der_encoder.encode(xml_entitlements_dict)
 
         der_entitlements_index = construct.Container(type=7,
                                                      offset=offset,
@@ -249,27 +255,28 @@ def make_basic_codesig(entitlements_file, drs, code_limit, hashes_sha1, hashes_s
                                                                           ))
         offset += der_entitlements_index.blob.length
 
-
-    cd_sha256 = build_code_directory_blob(
-        hash_algorithm='sha256',
-        teamID=teamID,
-        ident_for_signature=ident_for_signature,
-        code_limit=code_limit,
-        hashes=hashes_sha256,
-        exec_segment_offset=exec_segment_offset,
-        exec_segment_limit=exec_segment_limit,
-        is_main_binary=is_main_binary)
-
-    cd_sha256_data = macho_cs.CodeDirectory.build(cd_sha256)
-    cd_sha256_index = construct.Container(type=0x1000,
-                                   offset=offset,
-                                   blob=construct.Container(magic='CSMAGIC_CODEDIRECTORY',
-                                                            length=len(cd_sha256_data) + 8,
-                                                            data=cd_sha256,
-                                                            bytes=cd_sha256_data,
-                                                            ))
-
-    offset += cd_sha256_index.blob.length
+    cd_sha256_index = None
+    if sha256_codesignature_enabled:
+        cd_sha256 = build_code_directory_blob(
+            hash_algorithm='sha256',
+            teamID=teamID,
+            ident_for_signature=ident_for_signature,
+            code_limit=code_limit,
+            hashes=hashes_sha256,
+            exec_segment_offset=exec_segment_offset,
+            exec_segment_limit=exec_segment_limit,
+            is_main_binary=is_main_binary)
+    
+        cd_sha256_data = macho_cs.CodeDirectory.build(cd_sha256)
+        cd_sha256_index = construct.Container(type=0x1000,
+                                       offset=offset,
+                                       blob=construct.Container(magic='CSMAGIC_CODEDIRECTORY',
+                                                                length=len(cd_sha256_data) + 8,
+                                                                data=cd_sha256,
+                                                                bytes=cd_sha256_data,
+                                                                ))
+    
+        offset += cd_sha256_index.blob.length
 
     sigwrapper_index = construct.Container(type=65536,
                                            offset=offset,

@@ -44,8 +44,8 @@ setup(
         'construct==2.5.2',
         'memoizer==0.0.1',
         'pyOpenSSL==18.0.0',
-        'asn1==2.4.1',
-        'future==0.18.2',
+		'pyasn1==0.4.8',
+		
         'six>=1.10.0'
     ],
     package_data={
