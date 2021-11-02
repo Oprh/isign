@@ -1,36 +1,37 @@
 import six
 
-import asn1
+from pyasn1.codec.der import encoder
+from pyasn1.type import univ
+from pyasn1.type import char
 
-def der_encode(element):
-    encoder = asn1.Encoder()
-    encoder.start()
-    _der_encode(element, encoder)
-    return encoder.output()
 
-def _der_encode(element, encoder):
+def encode(element):
+    der_object = _turn_into_der_structure(element)
+    return encoder.encode(der_object)
+
+def _turn_into_der_structure(element):
     if isinstance(element, dict):
-        encoder.enter(asn1.Numbers.Set)
-        for element_key,element_value in six.iteritems(element):
-            encoder.enter(asn1.Numbers.Sequence)
-            _der_encode(element_key, encoder)
-            _der_encode(element_value, encoder)
-            encoder.leave()
-        encoder.leave()
+        set_element = univ.SetOf()
+        for set_index, (element_key,element_value) in enumerate(six.iteritems(element)):
+            entry_sequence = univ.Sequence()
+            entry_sequence[0] = _turn_into_der_structure(element_key)
+            entry_sequence[1] = _turn_into_der_structure(element_value)
+            set_element[set_index] = entry_sequence
+        return set_element
     elif isinstance(element, list):
-        encoder.enter(asn1.Numbers.Sequence)
-        for element_item in element:
-            _der_encode(element_item, encoder)
-        encoder.leave()
+        sequence_element = univ.Sequence()
+        for sequence_index, element_item in enumerate(element):
+            sequence_element[sequence_index] = _turn_into_der_structure(element_item)
+        return sequence_element
     elif isinstance(element, bool):
-        encoder.write(element, asn1.Numbers.Boolean)
+        return univ.Boolean(element)
     elif isinstance(element, int):
-        encoder.write(element, asn1.Numbers.Integer)
+        return univ.Integer(element)
     elif isinstance(element, str):
-        encoder.write(element, asn1.Numbers.UTF8String)
+        return char.UTF8String(element)
     elif isinstance(element, bytes):
-        encoder.write(element, asn1.Numbers.OctetString)
+        return univ.OctetString(element)
     elif element is None:
-        encoder.write(element, asn1.Numbers.Null)
+        return univ.Null()
     else:
         raise ValueError('Unsupported type for DER: {}'.format(type(element)))
